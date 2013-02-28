@@ -1,0 +1,69 @@
+# $Id$
+#
+# German translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  csv_analysis.module: n/a
+#  csv_analysis.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2010-12-26 22:02+0100\n"
+"PO-Revision-Date: 2010-12-26 22:02+0100\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: German <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+#: csv_analysis.module:114;119
+msgid "CSV Export for analysis"
+msgstr "Export als CSV für eine Analyse"
+
+#: csv_analysis.module:126
+msgid "Procedure on multiple terms assigned from vocabulary"
+msgstr "Verhalten bei mehreren zugewiesenen Termen aus einem Vokabular"
+
+#: csv_analysis.module:127
+msgid "Take frist term"
+msgstr "Ersten Term wählen"
+
+#: csv_analysis.module:127
+msgid "All combinations of terms"
+msgstr "Alle Term-Kombinationen erstellen"
+
+#: csv_analysis.module:127
+msgid "Comma seperated list of terms"
+msgstr "Komma-getrennte Liste von Termen"
+
+#: csv_analysis.module:129
+msgid "This option determines the behaviour of the csv export if there are multiple terms from the same vocabulary attached to the node. It can either just the first item be exported, all combinations of terms be calculated (e.g. one voc has 2 terms assigned and another 3 terms would result in 6 unique rows to be exported), or all attached terms are written comma separated in the same field."
+msgstr "Die Einstellung legt das Verhalten des Export fest wenn einem Node mehrere Terme aus einem Vokabular zugeordnet sind. Es kann entweder der erste zugeordnete Term für jedes Vokabular verwendet werden, alle Kombinationen der Terme gebildet werden (sind dem Node 2 Terme aus einen Vokabular und 3 aus einem anderen zugeordnet enthält der Export 6 einzelne Zeilen für diesen Node), oder alle zugeorneten Terme werden mit Komma getrennt in ein Feld geschrieben."
+
+#: csv_analysis.module:144
+msgid "Export nodes for analysis"
+msgstr "Nodes für eine Analyse exportieren"
+
+#: csv_analysis.module:144
+msgid "The CSV file will contain all nodes stored in the system with their assigned vocabulary terms."
+msgstr "Die CSV-Datei enthälte alle Nodes des Systems mit den zugeordneten Termen der Vocabulare."
+
+#: csv_analysis.module:15
+msgid "CSV Export"
+msgstr "CSV-Export"
+
+#: csv_analysis.info:0
+msgid "CSV Export for Analysis"
+msgstr "Export als CSV für eine Analyse"
+
+#: csv_analysis.info:0
+msgid "Exports all nodes and their attached vocabulary terms as a csv file in matrix layout."
+msgstr "Exportiert alle Nodes mit den zugeordneten Termen der Vocabulare als CSV-Datei in Matrix-Darstellung."
+
+#: csv_analysis.info:0
+#msgid "Other"
+#msgstr "Sonstige"
+

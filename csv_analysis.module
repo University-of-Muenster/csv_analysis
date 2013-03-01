@@ -11,90 +11,198 @@ function csv_analysis_init() {
 /**
 * Implementation of hook_menu
 */
-function csv_analysis_menu() {  
+function csv_analysis_menu() {
     $items['csv_analysis/csv_export'] = array(
       'page callback' => 'csv_analysis_export',
       'title' => 'CSV Export',
       'type' => MENU_CALLBACK,
-   	  'access arguments' => array('csv analysis access'),
-   	  'access callback' => 'user_access',
+       'access arguments' => array('csv analysis access'),
+       'access callback' => 'user_access',
     );
-    
-	return $items;
+
+  return $items;
 }
 
 /**
  * Function building the csv file and returning it to the client
  */
 function csv_analysis_export(){
-	//Setting for multiple terms
-	$multiterms = variable_get('csv_analysis_multiterms', 'all');
-	
-	$output = "nid;title;type";
-	//get all vocuabularies
-	$vocabularies = taxonomy_get_vocabularies();
-	foreach($vocabularies as $key => $voc){
-		$output.=";".csv_analysis_csv_escape($voc->name);
-	}
-	$output.="\n";
-	
-	$results = db_query("SELECT nid, title, type from {node}");
-	while($row = db_fetch_object($results)){
-		
-		$rowCSV = array(); //Stores all datasets for current node (can be multiple if node is attached to multiple terms in a single vocabulary)
-		//basic information for each node
-		$rowCSV[0] = $row->nid.";".csv_analysis_csv_escape($row->title).";".csv_analysis_csv_escape($row->type);
-		
-		$node = node_load($row->nid);
-		
-		//get taxonomy terms for node
-		$terms = taxonomy_node_get_terms($node);
-		
-		$foundTerms = array();
-		foreach($terms as $key => $term){ //Determine all terms matching current vocabulary
-			$foundTerms[$term->vid][$term->tid] = $term->tid; //Add all terms of vocabulary
-		}	
-		
-		foreach($vocabularies as $key => $voc){					
-			$newRow = array();
-			foreach($rowCSV as $key => $val){ //Iterate all rows up to now
-				if(count($foundTerms[$voc->vid]) > 0){
-					foreach($foundTerms[$voc->vid] as $tKey => $tVal){
-						if($multiterms == "comma"){
-							if(empty($newRow[0]))
-								$newRow[0] = $val.";".$tVal; //First term
-							else
-								$newRow[0].=",".$tVal; //Attach further terms separated by comma
-						}
-						elseif($multiterms == "first"){
-							$newRow[] = $val.";".$tVal;
-							break; //Just add the first term then break inner foreach. Outer foreach in this case always just consists of one entry.
-						}
-						else {
-							$newRow[] = $val.";".$tVal; //If multiple terms in current voc create douplicates of every exisiting row
-						}
-					}
-				}
-				else {
-					$newRow[]=$val.";"; //if no term found leave this field blank
-				}
-			}
-			$rowCSV = $newRow; //multiplied lines are set as the base for the next vocabulary
-		} //End: Iteration over vocabularies
-		
-		foreach($rowCSV as $val){
-			$output.=$val."\n"; //for every 
-		}
-	} //End: Iteration over all nodes
-	
-	$application="text/csv";
-	header( "Content-Type: ".$application."; charset=ISO-8859-1" ); 
-	header( "Content-Disposition: attachment; filename=\"yrp-export.csv\""); 
-	header( "Content-Description: csv File" ); 
-	header( "Pragma: no-cache" ); 
-	header( "Expires: 0" ); 
-	echo utf8_decode($output); //Output has to be ISO-8859-1. Otherwise Excel is not displaying special characters the right way
-	exit();
+  $csv_output = array();
+  $terms = array();
+  $vocabularies = array();
+
+
+  // Load all nodes
+  $results = db_query("SELECT nid, title, type from {node}");
+  $csv_output[0]['nid'] = 'nid';
+  $csv_output[0]['title'] = 'title';
+  $csv_output[0]['type'] = 'type';
+
+  foreach ($results as $row) {
+    $node = node_load($row->nid);
+
+    $csv_output[$node->nid]['nid'] = $node->nid;
+    $csv_output[$node->nid]['title'] = $node->title;
+    $csv_output[$node->nid]['type'] = $node->type;
+
+    $node_array = (array)$node;
+    foreach ($node_array as $key => $value) {
+      if(isset($value['und'])) {
+        foreach ($value['und'] as $candiate) {
+          if(isset($candiate['tid'])) {
+            if(!isset($terms[$candiate['tid']])){
+              $terms[$candiate['tid']] = taxonomy_term_load($candiate['tid']);
+            }
+            $term = $terms[$candiate['tid']];
+            if(!isset($vocabularies[$term->vid])) {
+              $vocabularies[$term->vid] = taxonomy_vocabulary_load($term->vid);
+              $csv_output[0][$term->vid] = t($vocabularies[$term->vid]->name);
+            }
+            $vocabulary = $vocabularies[$term->vid];
+
+            $csv_output[$node->nid][$vocabulary->vid][] = t($term->name);
+          }
+        }
+      }
+    }
+  }
+
+
+  //Build CSV
+  $csv = '';
+  foreach ($csv_output as $row) {
+    $row_output = '';
+
+    foreach ($csv_output[0] as $column => $value){
+      if(isset($row[$column])) {
+        $field_output = '';
+        if (is_array($row[$column])) {
+          foreach ($row[$column] as $term) {
+            if(!empty($field_output)){
+              $field_output .= ',';
+            }
+            $field_output.= $term;
+          }
+        }
+        else {
+          $field_output = $row[$column];
+        }
+
+        if(!empty($row_output)) {
+          $row_output .= ';';
+        }
+        $row_output .= $field_output;
+      }
+      else
+      {
+        if(!empty($row_output)) {
+          $row_output .= ';';
+        }
+      }
+    }
+
+    if(!empty($csv)){
+      $csv .= "\n";
+    }
+    $csv .= $row_output;
+  }
+
+  $application="text/csv";
+  header( "Content-Type: ".$application."; charset=ISO-8859-1" );
+  header( "Content-Disposition: attachment; filename=\"yrp-export.csv\"");
+  header( "Content-Description: csv File" );
+  header( "Pragma: no-cache" );
+  header( "Expires: 0" );
+  echo utf8_decode($csv); //Output has to be ISO-8859-1. Otherwise Excel is not displaying special characters the right way
+  exit();
+}
+
+/**
+ * Function building the csv file and returning it to the client
+ */
+function csv_analysis_export_old(){
+  //Setting for multiple terms
+  $multiterms = variable_get('csv_analysis_multiterms', 'all');
+
+  $output = "nid;title;type";
+  //get all vocuabularies
+  $vocabularies = taxonomy_get_vocabularies();
+  foreach($vocabularies as $key => $voc){
+    $output.=";".csv_analysis_csv_escape($voc->name);
+  }
+  $output.="\n";
+
+  $results = db_query("SELECT nid, title, type from {node}");
+  foreach ($results as $row) {
+    $rowCSV = array(); //Stores all datasets for current node (can be multiple if node is attached to multiple terms in a single vocabulary)
+    //basic information for each node
+    $rowCSV[0] = $row->nid.";".csv_analysis_csv_escape($row->title).";".csv_analysis_csv_escape($row->type);
+
+    $node = node_load($row->nid);
+
+    //get taxonomy terms for node
+    //$terms = taxonomy_node_get_terms($node);
+    //$node = node_load(5000);
+    $node_array = (array)$node;
+    $terms = array();
+    foreach ($node_array as $key => $value) {
+      if(isset($value['und'])) {
+        foreach ($value['und'] as $candiate) {
+          if(isset($candiate['tid'])) {
+            $terms[$candiate['tid']] = taxonomy_term_load($candiate['tid']);
+            //print_r($candiate['tid'] . " - ");
+          }
+        }
+      }
+    }
+//    print_r($terms);
+//    exit;
+
+    $foundTerms = array();
+    foreach($terms as $key => $term){ //Determine all terms matching current vocabulary
+      $foundTerms[$term->vid][$term->tid] = $term->tid; //Add all terms of vocabulary
+    }
+
+    foreach($vocabularies as $key => $voc){
+      $newRow = array();
+      foreach($rowCSV as $key => $val){ //Iterate all rows up to now
+        if(count($foundTerms[$voc->vid]) > 0){
+          foreach($foundTerms[$voc->vid] as $tKey => $tVal){
+            if($multiterms == "comma"){
+              if(empty($newRow[0]))
+                $newRow[0] = $val.";".$tVal; //First term
+              else
+                $newRow[0].=",".$tVal; //Attach further terms separated by comma
+            }
+            elseif($multiterms == "first"){
+              $newRow[] = $val.";".$tVal;
+              break; //Just add the first term then break inner foreach. Outer foreach in this case always just consists of one entry.
+            }
+            else {
+              $newRow[] = $val.";".$tVal; //If multiple terms in current voc create douplicates of every exisiting row
+            }
+          }
+        }
+        else {
+          $newRow[]=$val.";"; //if no term found leave this field blank
+        }
+      }
+      $rowCSV = $newRow; //multiplied lines are set as the base for the next vocabulary
+    } //End: Iteration over vocabularies
+
+    foreach($rowCSV as $val){
+      $output.=$val."\n"; //for every
+    }
+  } //End: Iteration over all nodes
+
+  $application="text/csv";
+  header( "Content-Type: ".$application."; charset=ISO-8859-1" );
+  header( "Content-Disposition: attachment; filename=\"yrp-export.csv\"");
+  header( "Content-Description: csv File" );
+  header( "Pragma: no-cache" );
+  header( "Expires: 0" );
+  echo utf8_decode($output); //Output has to be ISO-8859-1. Otherwise Excel is not displaying special characters the right way
+  exit();
 }
 
 /**
@@ -103,65 +211,81 @@ function csv_analysis_export(){
  * @return String Escaped csv string
  */
 function csv_analysis_csv_escape($string){
-	return '"'.str_replace ( '"' , '""' , $string ).'"';
+  return '"'.str_replace ( '"' , '""' , $string ).'"';
 }
 
 /**
-* Implementation of hook_block().
-* @param string $op one of "list", "view", "save" and "configure"
+* Implementation of hook_block_view().
 * @param integer $delta code to identify the block
-* @param array $edit only for "save" operation
 */
-function csv_analysis_block($op = 'list', $delta = 0, $edit = array()) { 
-	if ($op == "list") {
-    	// Generate listing of blocks from this module, for the admin/block page
-    	$block = array();
-    	$block[0]["info"] = t('CSV Export for analysis');
-    	return $block;
-	} 
-	elseif($op == "view"){
-		$block = array(
-			'subject' => t('CSV Export for analysis'),
-			'content' => csv_analysis_view_block());
-		return $block;
-	}
-  elseif ($op == 'configure') {
-  	$form['multiterms'] = array(
-  		'#type' => 'select',
-        '#title' => t('Procedure for multiple terms assigned from vocabulary'),
-        '#options' => array("first" => t('Take frist term'), "all" => t('All combinations of terms'), "comma" => t('Comma seperated list of terms')),
-  		'#default_value' => variable_get('csv_analysis_multiterms', 'all'),
-  		'#description' => t('This option determines the behaviour of the csv export if there are multiple terms from the same vocabulary attached to the node. It can either just the first item be exported, all combinations of terms be calculated (e.g. one voc has 2 terms assigned and another 3 terms would result in 6 unique rows to be exported), or all attached terms are written comma separated in the same field.'),
-  	);
-  	
-    return $form;
-  }
-  elseif ($op == 'save') {
-    variable_set('csv_analysis_multiterms', $edit['multiterms']);
-  }
+function csv_analysis_block_view($delta = '') {
+  $block = array(
+    'subject' => t('CSV Export for analysis'),
+    'content' => csv_analysis_view_block());
+  return $block;
+}
+
+/**
+* Implementation of hook_block_info().
+*/
+function csv_analysis_block_info() {
+  // Generate listing of blocks from this module, for the admin/block page
+  $block = array();
+  $block[0]["info"] = t('CSV Export for analysis');
+  return $block;
+}
+
+/**
+* Implementation of hook_block_configure().
+* @param integer $delta code to identify the block
+*/
+function csv_analysis_block_configure($delta = '') {
+  $form['multiterms'] = array(
+    '#type' => 'select',
+      '#title' => t('Procedure for multiple terms assigned from vocabulary'),
+      '#options' => array("first" => t('Take frist term'), "all" => t('All combinations of terms'), "comma" => t('Comma seperated list of terms')),
+    '#default_value' => variable_get('csv_analysis_multiterms', 'all'),
+    '#description' => t('This option determines the behaviour of the csv export if there are multiple terms from the same vocabulary attached to the node. It can either just the first item be exported, all combinations of terms be calculated (e.g. one voc has 2 terms assigned and another 3 terms would result in 6 unique rows to be exported), or all attached terms are written comma separated in the same field.'),
+  );
+
+  return $form;
+}
+
+/**
+* Implementation of hook_block_save().
+* @param integer $delta code to identify the block
+* @param array $edit edited content
+*/
+function csv_analysis_block_save($delta = '', $edit = array()) {
+  variable_set('csv_analysis_multiterms', $edit['multiterms']);
 }
 
 /**
  * Gives the content of the block
  * Basically just the link to the export
- * 
+ *
  */
 function csv_analysis_view_block(){
-	ob_start();
-	?>
-	
-	<div id="csv_analysis">
-		<?php echo '<a href="' . url("csv_analysis/csv_export") . '">'.t("Export nodes for analysis").'</a>. '.t("The CSV file will contain all nodes stored in the system with their assigned vocabulary terms."); ?>
-	</div>
-	
-	<?php 
-	$out = ob_get_clean();
+  ob_start();
+  ?>
+
+  <div id="csv_analysis">
+    <?php echo '<a href="' . url("csv_analysis/csv_export") . '">'.t("Export nodes for analysis").'</a>. '.t("The CSV file will contain all nodes stored in the system with their assigned vocabulary terms."); ?>
+  </div>
+
+  <?php
+  $out = ob_get_clean();
     return $out;
 }
 
 /**
- * Implementation of hook_perm()
+ * Implementation of hook_permission()
  */
-function csv_analysis_perm(){
-	return array("csv analysis access"); //Right for accessing the export data
+function csv_analysis_permission(){
+  return array(
+    'csv analysis access' => array(
+      'title' => t('csv analysis access'),
+      'description' => t('Execute the csv export'),
+    ),
+  );
 }

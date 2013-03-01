@@ -2,7 +2,6 @@
 
 name = CSV Export for Analysis
 description = "Exports all nodes and their attached vocabulary terms as a csv file in matrix layout."
-package = "Your Know-How Portal"
-core = 6.x
-php = 5.0
-version = 6.x-1.0
+package = "yourResearchPortal"
+core = 7.x
+version = 7.x-1.0
